@@ -57,13 +57,26 @@ int main(int argc, char **argv) {
 
     std::cout << "Waiting for a client to connect...\n";
 
-    int client = accept(server_fd, (struct sockaddr *)&client_addr,
-           (socklen_t *)&client_addr_len);
+    int client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
+                           (socklen_t *)&client_addr_len);
     std::cout << "Client connected\n";
 
-    std::string response = "HTTP/1.1 200 OK\r\n\r\n";
-    send(client, response.c_str(), response.size(), 0);
+    // Receive data from the client
+    std::string client_req(1024, '\0');
+    ssize_t bytesReceived = recv(client_fd, &client_req[0], 1024, 0);
+    if (bytesReceived == -1) {
+        std::cerr << "Failed to receive data." << std::endl;
+        close(client_fd);
+        close(server_fd);
+        return 1;
+    }
 
+    // Check if the request is a valid HTTP GET request for the root path
+    std::string response = client_req.starts_with("GET / HTTP/1.1\r\n")
+                               ? "HTTP/1.1 200 OK\r\n\r\n"
+                               : "HTTP/1.1 404 Not Found\r\n\r\n";
+
+    send(client_fd, response.c_str(), response.length(), 0);
     close(server_fd);
 
     return 0;
