@@ -7,7 +7,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <sstream>
 #include <string>
+#include <vector>
 
 int main(int argc, char **argv) {
     // Flush after every std::cout / std::cerr
@@ -72,9 +74,32 @@ int main(int argc, char **argv) {
     }
 
     // Check if the request is a valid HTTP GET request for the root path
-    std::string response = client_req.starts_with("GET / HTTP/1.1\r\n")
-                               ? "HTTP/1.1 200 OK\r\n\r\n"
-                               : "HTTP/1.1 404 Not Found\r\n\r\n";
+    std::string response;
+    std::stringstream crequest(client_req);
+    std::vector<std::string> requestArr;
+    std::string word;
+    while (crequest >> word) {
+        requestArr.push_back(word);
+    }
+
+    if (requestArr[0] == "GET" && requestArr[1] == "/") {
+        response = "HTTP/1.1 200 OK\r\n\r\n";
+    } else if (requestArr[0] == "GET" && requestArr[1].starts_with("/echo/")) {
+        response =
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
+        std::string resBody = requestArr[1].substr(6);
+        response += std::to_string(resBody.length());
+        response += "\r\n\r\n";
+        response += resBody;
+    } else {
+        response = "HTTP/1.1 404 Not Found\r\n\r\n";
+    }
+
+    // if(client_req.starts_with("GET / HTTP/1.1\r\n")) {
+    //     response = "HTTP/1.1 200 OK\r\n";
+    // } else {
+    //     response = "HTTP/1.1 404 Not Found\r\n\r\n";
+    // }
 
     send(client_fd, response.c_str(), response.length(), 0);
     close(server_fd);
