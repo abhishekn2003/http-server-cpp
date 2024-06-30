@@ -133,8 +133,6 @@ std::string getResponse(std::string& client_req) {
             }
         }
 
-        
-
         if (compressed) {
             std::string compBody = compress_string(resBody);
             response +=
