@@ -20,7 +20,7 @@ struct HttpRequest {
     std::string body;
 };
 
-std::string trim(const std::string& str) {
+std::string trim(std::string str) {
     auto start = str.begin();
     while (start != str.end() && std::isspace(*start)) {
         start++;
@@ -31,11 +31,12 @@ std::string trim(const std::string& str) {
         end--;
     } while (std::distance(start, end) > 0 && std::isspace(*end));
 
-    return std::string(start, end + 1);
+    std::string res = std::string(start, end + 1);
+    return res;
 }
 
 // Function to parse the HTTP request
-HttpRequest parseHttpRequest(const std::string& request) {
+HttpRequest parseHttpRequest(std::string request) {
     HttpRequest httpRequest;
     std::istringstream stream(request);
     std::string line;
@@ -73,6 +74,34 @@ HttpRequest parseHttpRequest(const std::string& request) {
     return httpRequest;
 }
 
+std::string getResponse(std::string& client_req) {
+    HttpRequest httpRequest = parseHttpRequest(client_req);
+    std::string response;
+
+    if (httpRequest.method == "GET" && httpRequest.uri == "/") {
+        response = "HTTP/1.1 200 OK\r\n\r\n";
+    } else if (httpRequest.method == "GET" &&
+               httpRequest.uri.find("/echo/") == 0) {
+        std::string resBody = httpRequest.uri.substr(6);
+        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n";
+        response += "Content-Length: " + std::to_string(resBody.length());
+        response += "\r\n\r\n";
+        response += resBody;
+    } else if (httpRequest.method == "GET" &&
+               httpRequest.uri == "/user-agent") {
+        std::string resBody = httpRequest.headers["User-Agent"];
+
+        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n";
+        response += "Content-Length: " + std::to_string(resBody.length());
+        response += "\r\n\r\n";
+        response += resBody;
+    } else {
+        response = "HTTP/1.1 404 Not Found\r\n\r\n";
+    }
+
+    return response;
+}
+
 int main(int argc, char** argv) {
     // Flush after every std::cout / std::cerr
     std::cout << std::unitbuf;
@@ -82,7 +111,6 @@ int main(int argc, char** argv) {
     // when running tests.
     std::cout << "Logs from your program will appear here!\n";
 
-    // Uncomment this block to pass the first stage
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         std::cerr << "Failed to create server socket\n";
@@ -120,46 +148,96 @@ int main(int argc, char** argv) {
 
     std::cout << "Waiting for a client to connect...\n";
 
-    int client_fd = accept(server_fd, (struct sockaddr*)&client_addr,
-                           (socklen_t*)&client_addr_len);
-    std::cout << "Client connected\n";
+    fd_set clientfds;
+    int max_clients = 30;
+    std::vector<int> client_sockets(max_clients);
 
-    // Receive data from the client
-    std::string client_req(1024, '\0');
-    ssize_t bytesReceived = recv(client_fd, &client_req[0], 1024, 0);
-    if (bytesReceived == -1) {
-        std::cerr << "Failed to receive data." << std::endl;
-        close(client_fd);
-        close(server_fd);
-        return 1;
+    int max_sd = server_fd;
+    while (true) {
+        FD_ZERO(&clientfds);
+        FD_SET(server_fd, &clientfds);
+
+        max_sd = server_fd;
+
+        // add child sockets to set
+        for (int i = 0; i < max_clients; i++) {
+            // socket descriptor
+            int sd = client_sockets[i];
+
+            // if valid socket descriptor then add to read list
+            if (sd > 0) FD_SET(sd, &clientfds);
+
+            // highest file descriptor number, need it for the select function
+            if (sd > max_sd) max_sd = sd;
+        }
+
+        int activity = select(max_sd + 1, &clientfds, NULL, NULL, NULL);
+
+        if ((activity < 0) && (errno != EINTR)) {
+            std::cerr << "select error\n";
+        }
+
+        // new client
+        if (FD_ISSET(server_fd, &clientfds)) {
+            int new_client = accept(server_fd, (struct sockaddr*)&client_addr,
+                                    (socklen_t*)&client_addr_len);
+            if (new_client == -1) {
+                std::cerr << "new client error\n";
+                exit(EXIT_FAILURE);
+            }
+            std::cout << "Client connected\n";
+
+            for (int i = 0; i < max_clients; i++) {
+                if (client_sockets[i] == 0) {
+                    client_sockets[i] = new_client;
+                    break;
+                }
+            }
+        }
+
+        // client operations
+        for (int i = 0; i < max_clients; i++) {
+            int curr_fd = client_sockets[i];
+
+            if (FD_ISSET(curr_fd, &clientfds)) {
+                // Receive data from the client
+                std::string client_req(1024, '\0');
+                ssize_t bytesReceived =
+                    recv(curr_fd, &client_req[0], 1024, 0);
+                if (bytesReceived == -1) {
+                    std::cerr << "Failed to receive data." << std::endl;
+                    close(curr_fd);
+                    // close(server_fd);
+                    return 1;
+                }
+                std::string response = getResponse(client_req);
+
+                std::cout << "client response: " << response << "\n";
+
+                send(curr_fd, response.c_str(), response.length(), 0);
+                client_sockets[i] = 0;
+                close(curr_fd);
+            }
+        }
     }
 
-    HttpRequest httpRequest = parseHttpRequest(client_req);
-    std::string response;
+    // int client_fd = accept(server_fd, (struct sockaddr*)&client_addr,
+    //                        (socklen_t*)&client_addr_len);
+    // std::cout << "Client connected\n";
 
-    if (httpRequest.method == "GET" && httpRequest.uri == "/") {
-        response = "HTTP/1.1 200 OK\r\n\r\n";
-    } else if (httpRequest.method == "GET" &&
-               httpRequest.uri.find("/echo/") == 0) {
-        std::string resBody = httpRequest.uri.substr(6);
-        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n";
-        response += "Content-Length: " + std::to_string(resBody.length());
-        response += "\r\n\r\n";
-        response += resBody;
-    } else if (httpRequest.method == "GET" &&
-               httpRequest.uri == "/user-agent") {
-        std::string resBody = httpRequest.headers["User-Agent"];
+    // // Receive data from the client
+    // std::string client_req(1024, '\0');
+    // ssize_t bytesReceived = recv(client_fd, &client_req[0], 1024, 0);
+    // if (bytesReceived == -1) {
+    //     std::cerr << "Failed to receive data." << std::endl;
+    //     close(client_fd);
+    //     close(server_fd);
+    //     return 1;
+    // }
+    // std::string response = getResponse(client_req);
 
-        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n";
-        response += "Content-Length: " + std::to_string(resBody.length());
-        response += "\r\n\r\n";
-        response += resBody;
-    } else {
-        response = "HTTP/1.1 404 Not Found\r\n\r\n";
-    }
-
-    send(client_fd, response.c_str(), response.length(), 0);
-    close(server_fd);
+    // send(client_fd, response.c_str(), response.length(), 0);
+    // close(server_fd);
 
     return 0;
 }
