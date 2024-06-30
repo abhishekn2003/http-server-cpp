@@ -47,6 +47,12 @@
     "streambuf": "cpp",
     "typeinfo": "cpp",
     "sstream": "cpp",
-    "map": "cpp"
+    "map": "cpp",
+    "chrono": "cpp",
+    "codecvt": "cpp",
+    "ctime": "cpp",
+    "ratio": "cpp",
+    "fstream": "cpp",
+    "iomanip": "cpp"
   }
 }
