@@ -1,39 +1,12 @@
-[![progress-banner](https://backend.codecrafters.io/progress/http-server/c360e986-2f4a-41a6-9e33-c3d304775dc3)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Simple HTTP Server
 
-This is a starting point for C++ solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
+This repo consists of implementation of a simple http web server with concurrent user handling.
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
+#### GET request
+![Get reqest at echo endpoint](https://github.com/user-attachments/assets/99787b5c-c2ef-4707-bb3f-23e742196a5d)
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+#### POST request to create a file with some content
+![POST request](https://github.com/user-attachments/assets/5aa3b7e3-ff6a-464a-af47-fbc033d9ff76)
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
-
-# Passing the first stage
-
-The entry point for your HTTP server implementation is in `src/server.cpp`.
-Study and uncomment the relevant code, and push your changes to pass the first
-stage:
-
-```sh
-git add .
-git commit -m "pass 1st stage" # any msg
-git push origin master
-```
-
-Time to move on to the next stage!
-
-# Stage 2 & beyond
-
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `cmake` installed locally
-1. Run `./your_server.sh` to run your program, which is implemented in
-   `src/server.cpp`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+#### Gzip compression
+![Gzip compression](https://github.com/user-attachments/assets/d4a3b35b-3e6f-4821-8f1c-4927933bdfb9)
